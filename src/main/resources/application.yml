@@ -1,0 +1,84 @@
+server:
+  # 8080 已被本机其它进程占用
+  port: 8081
+
+spring:
+  application:
+    name: alarm-clock-acm-mall
+  datasource:
+    # 3307 = docker-compose.yml 里本项目专属容器端口
+    # connectionTimeZone + forceConnectionTimeZoneToSession：connector 9.x 已废弃 serverTimezone
+    # allowPublicKeyRetrieval：MySQL 8 默认 caching_sha2_password 需要
+    url: jdbc:mysql://127.0.0.1:3307/acm_mall?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&connectionTimeZone=Asia/Shanghai&forceConnectionTimeZoneToSession=true&rewriteBatchedStatements=true
+    username: root
+    password: ${ACM_MYSQL_PASSWORD:root123456}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  sql:
+    init:
+      # 建库建表由 MySQL 容器的 docker-entrypoint-initdb.d 负责
+      mode: never
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: Asia/Shanghai
+    serialization:
+      write-dates-as-timestamps: false
+  servlet:
+    encoding:
+      charset: UTF-8
+      force: true
+
+mybatis-plus:
+  global-config:
+    db-config:
+      id-type: auto
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+  configuration:
+    map-underscore-to-camel-case: true
+    # 故意不设 default-enum-type-handler：MybatisConfiguration 默认装的
+    # CompositeEnumTypeHandler 会把带 @EnumValue 的枚举交给 MybatisEnumTypeHandler、
+    # 其余回落按名称处理；手动覆盖会让没有 @EnumValue 的枚举映射失败
+
+jwt:
+  # HS256 要求密钥不少于 32 字节，否则启动即抛 WeakKeyException
+  secret: ${ACM_JWT_SECRET:acm-mall-dev-secret-please-replace-me-0123456789abcdef}
+  expire-minutes: 120
+  issuer: acm-mall
+
+alipay:
+  # 沙箱凭证填好后把 enabled 改成 true；占位值下应用仍可正常启动与自测
+  enabled: false
+  gateway: https://openapi-sandbox.dl.alipaydev.com/gateway.do
+  app-id: SANDBOX_APP_ID_PLACEHOLDER
+  # PKCS#8、单行、不要带 -----BEGIN/END----- 头尾。填 PKCS#1 会 InvalidKeySpecException
+  private-key: REPLACE_WITH_PKCS8_BASE64_APP_PRIVATE_KEY
+  # 沙箱控制台里的「支付宝公钥」，不是应用公钥
+  alipay-public-key: REPLACE_WITH_ALIPAY_SANDBOX_PUBLIC_KEY
+  sign-type: RSA2
+  format: json
+  charset: UTF-8
+  subject-prefix: '闹钟商城-'
+  # notify_url 是支付宝服务器对服务器的 POST，localhost 收不到。
+  # 要跑通异步回调需内网穿透（如 ngrok http 8081）后把公网域名填到这里
+  notify-url: http://REPLACE_WITH_PUBLIC_TUNNEL_HOST/api/alipay/notify
+  # return_url 是浏览器 302 跳转，本地能收到，但参数无签名，仅用于展示
+  return-url: http://localhost:8081/api/pay/return
+
+app:
+  order:
+    expire-minutes: 30
+    auto-close-enabled: false
+    sync-on-read: false
+
+logging:
+  level:
+    org.example.acm.mall.mapper: debug
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha

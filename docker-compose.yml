@@ -1,0 +1,28 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: alarm-clock-acm-mall-mysql
+    ports:
+      # 宿主机 3306 被本机 MySQL80 服务占用、3376 被 ciallocore-mysql 占用，这里用 3307
+      - "3307:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root123456
+      MYSQL_DATABASE: acm_mall
+      TZ: Asia/Shanghai
+    command:
+      - --default-time-zone=+08:00
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_general_ci
+    volumes:
+      - acm-mall-mysql-data:/var/lib/mysql
+      # 仅在卷为空的首次启动执行（按文件名顺序）。改了 DDL 需要 docker compose down -v 重建，
+      # 该卷名是本项目私有的，不要对其它 stack 执行 down -v。
+      - ./src/main/resources/db:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot123456" ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  acm-mall-mysql-data:
